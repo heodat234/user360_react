@@ -1,0 +1,5 @@
+@import "rsuite/dist/rsuite.css";
+
+.rs-anim-fade.rs-anim-in{
+  z-index: 20000;
+}

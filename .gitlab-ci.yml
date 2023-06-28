@@ -1,0 +1,81 @@
+variables:
+  Project: agent360
+image: 
+  name: node:16
+before_script:
+- apt-get -y update
+- apt-get -y install rsync
+- mkdir -p ~/.ssh
+- echo "$SSH_PRIVATE_KEY" | base64 -d > ~/.ssh/id_rsa
+- chmod 700 ~/.ssh/id_rsa
+- eval "$(ssh-agent -s)"
+- ssh-add ~/.ssh/id_rsa
+- '[[ -f /.dockerenv ]] && echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config'
+stages:
+  - deploy
+  
+deploy_rc:
+  stage: deploy
+  variables:
+    DEPLOY_FOLDER: 'agent360-rc.onlinelending.vn'
+    DEPLOY_HOST: 'deployer@125.212.252.159'
+    DEPLOY_ENV: 'rc'
+  script:
+     - |
+       echo "Deploy to $DEPLOY_ENV server"
+       npm install --legacy-peer-deps
+       npm run build
+       curl --header "PRIVATE-TOKEN: $PRIVATE_TOKEN_CICD" "https://git.digipaysolution.com/api/v4/projects/7/repository/files/build.$DEPLOY_ENV.sh/raw?ref=$Project" -o build.sh
+       curl --header "PRIVATE-TOKEN: $PRIVATE_TOKEN_CICD" "https://git.digipaysolution.com/api/v4/projects/7/repository/files/docker-compose-$DEPLOY_ENV.yml/raw?ref=$Project" -o docker-compose.yml
+       curl --header "PRIVATE-TOKEN: $PRIVATE_TOKEN_CICD" "https://git.digipaysolution.com/api/v4/projects/7/repository/files/Dockerfile$DEPLOY_ENV/raw?ref=$Project" -o Dockerfile
+       curl --header "PRIVATE-TOKEN: $PRIVATE_TOKEN_CICD" "https://git.digipaysolution.com/api/v4/projects/7/repository/files/nginx.conf/raw?ref=$Project" -o nginx.conf
+       chmod +x build.sh
+       rsync -r --delete . $DEPLOY_HOST:$DEPLOY_FOLDER/
+       ssh $DEPLOY_HOST "/home/deployer/$DEPLOY_FOLDER/build.sh"
+
+  only:
+    - build_rc
+
+deploy_stg:
+  stage: deploy
+  variables:
+    DEPLOY_FOLDER: 'agent360.onlinelending.vn'
+    DEPLOY_HOST: 'deployer@125.212.252.159'
+    DEPLOY_ENV: 'stg'
+  script:
+     - |
+       echo "Deploy to $DEPLOY_ENV server"
+       cd $CI_PROJECT_DIR
+       flutter build web --web-renderer canvaskit --release -t lib/main_staging.dart --base-href "/onboarding/"
+       curl --header "PRIVATE-TOKEN: $PRIVATE_TOKEN_CICD" "https://git.digipaysolution.com/api/v4/projects/7/repository/files/build.$DEPLOY_ENV.sh/raw?ref=$Project" -o build.sh
+       curl --header "PRIVATE-TOKEN: $PRIVATE_TOKEN_CICD" "https://git.digipaysolution.com/api/v4/projects/7/repository/files/docker-compose-$DEPLOY_ENV.yml/raw?ref=$Project" -o docker-compose.yml
+       curl --header "PRIVATE-TOKEN: $PRIVATE_TOKEN_CICD" "https://git.digipaysolution.com/api/v4/projects/7/repository/files/Dockerfile$DEPLOY_ENV/raw?ref=$Project" -o Dockerfile
+       curl --header "PRIVATE-TOKEN: $PRIVATE_TOKEN_CICD" "https://git.digipaysolution.com/api/v4/projects/7/repository/files/nginx.conf/raw?ref=$Project" -o nginx.conf
+       chmod +x build.sh
+       rsync -r --delete . $DEPLOY_HOST:$DEPLOY_FOLDER/
+       ssh $DEPLOY_HOST "/home/deployer/$DEPLOY_FOLDER/build.sh"
+
+  only:
+    - build_staging
+
+deploy_prod:
+  stage: deploy
+  variables:
+    DEPLOY_FOLDER: 'agent360.mfast.vn'
+    DEPLOY_HOST: 'deployer@27.71.238.50'
+    DEPLOY_ENV: 'prod'
+  script:
+     - |
+       echo "Deploy to $DEPLOY_ENV server"
+       npm install --legacy-peer-deps
+       npm run build
+       curl --header "PRIVATE-TOKEN: $PRIVATE_TOKEN_CICD" "https://git.digipaysolution.com/api/v4/projects/7/repository/files/build.$DEPLOY_ENV.sh/raw?ref=$Project" -o build.sh
+       curl --header "PRIVATE-TOKEN: $PRIVATE_TOKEN_CICD" "https://git.digipaysolution.com/api/v4/projects/7/repository/files/docker-compose-$DEPLOY_ENV.yml/raw?ref=$Project" -o docker-compose.yml
+       curl --header "PRIVATE-TOKEN: $PRIVATE_TOKEN_CICD" "https://git.digipaysolution.com/api/v4/projects/7/repository/files/Dockerfile$DEPLOY_ENV/raw?ref=$Project" -o Dockerfile
+       curl --header "PRIVATE-TOKEN: $PRIVATE_TOKEN_CICD" "https://git.digipaysolution.com/api/v4/projects/7/repository/files/nginx.conf/raw?ref=$Project" -o nginx.conf
+       chmod +x build.sh
+       rsync -r --delete . $DEPLOY_HOST:$DEPLOY_FOLDER/
+       ssh $DEPLOY_HOST "/home/deployer/$DEPLOY_FOLDER/build.sh"
+
+  only:
+    - main
